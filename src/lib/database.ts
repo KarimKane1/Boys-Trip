@@ -280,14 +280,38 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
       await writeDatabase(dataToWrite);
       console.log("Database write complete");
       
-      // Wait a moment for GitHub to process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait longer and retry verification multiple times
+      // GitHub API can have eventual consistency, so we need to keep checking
+      let verified = false;
+      let verifyAttempts = 0;
+      const maxVerifyAttempts = 5;
       
-      // Verify the write by reading back with fresh cache-bust
+      while (!verified && verifyAttempts < maxVerifyAttempts) {
+        verifyAttempts++;
+        const waitTime = 1000 + (verifyAttempts * 1000); // 2s, 3s, 4s, 5s, 6s
+        console.log(`Waiting ${waitTime}ms before verification attempt ${verifyAttempts}...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Verify the write by reading back with fresh cache-bust
+        const verifyData = await readDatabase();
+        const verifyPerson = verifyData.people.find((p) => p.id === personId);
+        console.log(`Verification attempt ${verifyAttempts} - Daunte status:`, verifyPerson?.status);
+        console.log(`Verification attempt ${verifyAttempts} - All statuses:`, verifyData.people.map((p: Person) => ({ id: p.id, status: p.status })));
+        
+        if (verifyPerson && verifyPerson.status === updatedPerson.status) {
+          console.log(`Write verified on attempt ${verifyAttempts} - status matches:`, verifyPerson.status);
+          verified = true;
+          return verifyPerson;
+        } else {
+          console.warn(`Verification attempt ${verifyAttempts} failed - expected ${updatedPerson.status}, got ${verifyPerson?.status}`);
+        }
+      }
+      
+      // If we get here, verification failed after all attempts
       const verifyData = await readDatabase();
       const verifyPerson = verifyData.people.find((p) => p.id === personId);
-      console.log("Verification read - Daunte status:", verifyPerson?.status);
-      console.log("Verification read - All statuses:", verifyData.people.map((p: Person) => ({ id: p.id, status: p.status })));
+      console.error(`Write verification failed after ${maxVerifyAttempts} attempts`);
+      console.error(`Expected status: ${updatedPerson.status}, Got: ${verifyPerson?.status}`);
       
       if (verifyPerson && verifyPerson.status === updatedPerson.status) {
         console.log("Write verified - status matches:", verifyPerson.status);
@@ -297,10 +321,11 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
         if (attempt < maxRetries) {
           lastError = new Error(`Status mismatch on attempt ${attempt} - expected ${updatedPerson.status}, got ${verifyPerson?.status}`);
           continue; // Retry
+        } else {
+          // All retries failed - throw error instead of returning stale data
+          throw new Error(`Failed to verify write after ${maxRetries} attempts. Expected status ${updatedPerson.status}, but database still shows ${verifyPerson?.status}. The write may not have persisted.`);
         }
       }
-      
-      return data.people[personIndex];
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Update attempt ${attempt} failed:`, lastError);
