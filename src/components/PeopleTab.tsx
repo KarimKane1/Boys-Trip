@@ -329,12 +329,26 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Date
                     </label>
-                    <input
-                      type="date"
-                      value={editArrivalDate}
-                      onChange={(e) => setEditArrivalDate(e.target.value)}
-                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={editArrivalDate}
+                        onChange={(e) => setEditArrivalDate(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
+                      />
+                      {editArrivalDate && (
+                        <button
+                          type="button"
+                          onClick={() => setEditArrivalDate("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                          aria-label="Clear date"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -369,12 +383,26 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Date
                     </label>
-                    <input
-                      type="date"
-                      value={editDepartureDate}
-                      onChange={(e) => setEditDepartureDate(e.target.value)}
-                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={editDepartureDate}
+                        onChange={(e) => setEditDepartureDate(e.target.value)}
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all pr-10"
+                      />
+                      {editDepartureDate && (
+                        <button
+                          type="button"
+                          onClick={() => setEditDepartureDate("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                          aria-label="Clear date"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -408,71 +436,155 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-sm font-semibold mb-2">Start Date</label>
-                        <input
-                          type="date"
-                          value={editLondonStart}
-                          onChange={(e) => setEditLondonStart(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editLondonStart}
+                            onChange={(e) => setEditLondonStart(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white pr-10"
+                          />
+                          {editLondonStart && (
+                            <button
+                              type="button"
+                              onClick={() => setEditLondonStart("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold mb-2">End Date</label>
-                        <input
-                          type="date"
-                          value={editLondonEnd}
-                          onChange={(e) => setEditLondonEnd(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editLondonEnd}
+                            onChange={(e) => setEditLondonEnd(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white pr-10"
+                          />
+                          {editLondonEnd && (
+                            <button
+                              type="button"
+                              onClick={() => setEditLondonEnd("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Paris */}
-                  <div className={`border-2 rounded-xl p-6 ${CITY_COLORS.Paris}`}>
-                    <h4 className="font-bold text-lg mb-4">Paris</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className={`border-2 rounded-xl p-4 sm:p-6 ${CITY_COLORS.Paris}`}>
+                    <h4 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">Paris</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-sm font-semibold mb-2">Start Date</label>
-                        <input
-                          type="date"
-                          value={editParisStart}
-                          onChange={(e) => setEditParisStart(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editParisStart}
+                            onChange={(e) => setEditParisStart(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white pr-10"
+                          />
+                          {editParisStart && (
+                            <button
+                              type="button"
+                              onClick={() => setEditParisStart("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold mb-2">End Date</label>
-                        <input
-                          type="date"
-                          value={editParisEnd}
-                          onChange={(e) => setEditParisEnd(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editParisEnd}
+                            onChange={(e) => setEditParisEnd(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white pr-10"
+                          />
+                          {editParisEnd && (
+                            <button
+                              type="button"
+                              onClick={() => setEditParisEnd("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Amsterdam */}
-                  <div className={`border-2 rounded-xl p-6 ${CITY_COLORS.Amsterdam}`}>
-                    <h4 className="font-bold text-lg mb-4">Amsterdam</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className={`border-2 rounded-xl p-4 sm:p-6 ${CITY_COLORS.Amsterdam}`}>
+                    <h4 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">Amsterdam</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-sm font-semibold mb-2">Start Date</label>
-                        <input
-                          type="date"
-                          value={editAmsterdamStart}
-                          onChange={(e) => setEditAmsterdamStart(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editAmsterdamStart}
+                            onChange={(e) => setEditAmsterdamStart(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white pr-10"
+                          />
+                          {editAmsterdamStart && (
+                            <button
+                              type="button"
+                              onClick={() => setEditAmsterdamStart("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold mb-2">End Date</label>
-                        <input
-                          type="date"
-                          value={editAmsterdamEnd}
-                          onChange={(e) => setEditAmsterdamEnd(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={editAmsterdamEnd}
+                            onChange={(e) => setEditAmsterdamEnd(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white pr-10"
+                          />
+                          {editAmsterdamEnd && (
+                            <button
+                              type="button"
+                              onClick={() => setEditAmsterdamEnd("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
+                              aria-label="Clear date"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
