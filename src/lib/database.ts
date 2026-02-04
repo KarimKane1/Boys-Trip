@@ -181,13 +181,23 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
   
   // Merge updates, but handle undefined values to remove fields
   const currentPerson = data.people[personIndex];
+  console.log("Current person before update:", JSON.stringify(currentPerson, null, 2));
+  console.log("Updates received:", JSON.stringify(updates, null, 2));
+  
   const updatedPerson: Person = {
     ...currentPerson,
-    ...updates,
+    // Explicitly set status if provided
+    status: updates.status !== undefined ? updates.status : currentPerson.status,
     // Explicitly handle undefined values to remove fields
     arrival: updates.arrival !== undefined ? updates.arrival : currentPerson.arrival,
     departure: updates.departure !== undefined ? updates.departure : currentPerson.departure,
     cityRanges: updates.cityRanges !== undefined ? updates.cityRanges : currentPerson.cityRanges,
+    // Include all other fields from updates
+    ...Object.fromEntries(
+      Object.entries(updates).filter(([key]) => 
+        !["status", "arrival", "departure", "cityRanges"].includes(key)
+      )
+    ),
   };
   
   // Remove undefined fields
@@ -201,8 +211,11 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
     delete updatedPerson.cityRanges;
   }
   
+  console.log("Updated person after merge:", JSON.stringify(updatedPerson, null, 2));
+  console.log("Status specifically:", updatedPerson.status);
+  
   data.people[personIndex] = updatedPerson;
-  console.log("Writing database with updated person...", JSON.stringify(updatedPerson, null, 2));
+  console.log("Writing database with updated person...");
   await writeDatabase(data);
   console.log("Database write complete");
   

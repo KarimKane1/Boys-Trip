@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const person = body as Person;
     
+    console.log("Full person object received:", JSON.stringify(person, null, 2));
     console.log("Updating person:", person.id, { 
       status: person.status, 
       hasCityRanges: !!person.cityRanges,
@@ -39,8 +40,11 @@ export async function POST(request: NextRequest) {
     }
     
     const { id, ...updates } = person;
+    console.log("Updates object (without id):", JSON.stringify(updates, null, 2));
+    console.log("Status in updates:", updates.status);
+    
     const updatedPerson = await updatePerson(id, updates);
-    console.log("Successfully updated person:", updatedPerson.id);
+    console.log("Successfully updated person:", updatedPerson.id, "with status:", updatedPerson.status);
     return NextResponse.json(updatedPerson);
   } catch (error) {
     console.error("Error updating person:", error);

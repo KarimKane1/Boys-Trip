@@ -75,8 +75,12 @@ export default function PeopleTab({ people, onDataChange }: PeopleTabProps) {
         cityRanges: Object.keys(cityRanges).length > 0 ? cityRanges : undefined,
       };
 
+      console.log("Saving person with status:", editStatus);
+      console.log("Full updatedPerson object:", JSON.stringify(updatedPerson, null, 2));
+
       // Save to database
-      await updatePerson(updatedPerson);
+      const savedPerson = await updatePerson(updatedPerson);
+      console.log("Person saved, returned status:", savedPerson.status);
       
       // Wait a bit for GitHub to process
       await new Promise(resolve => setTimeout(resolve, 1000));
