@@ -1,0 +1,220 @@
+{
+  "trip": {
+    "title": "Trip HQ",
+    "startDate": "2026-06-26",
+    "endDate": "2026-07-05"
+  },
+  "cities": [
+    "London",
+    "Paris",
+    "Amsterdam"
+  ],
+  "people": [
+    {
+      "id": "karim",
+      "name": "Karim",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "lucas",
+      "name": "Lucas",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "kachi",
+      "name": "Kachi",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-27",
+        "city": "Amsterdam"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-29",
+          "end": "2026-07-05"
+        },
+        "amsterdam": {
+          "start": "2026-06-27",
+          "end": "2026-06-29"
+        }
+      }
+    },
+    {
+      "id": "jake",
+      "name": "Jake",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "justin",
+      "name": "Justin",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "adam",
+      "name": "Adam",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "andrew",
+      "name": "Andrew",
+      "status": "confirmed",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    },
+    {
+      "id": "daunte",
+      "name": "Daunte",
+      "status": "tentative",
+      "arrival": {
+        "date": "2026-06-26",
+        "city": "London"
+      },
+      "departure": {
+        "date": "2026-07-05",
+        "city": "London"
+      },
+      "cityRanges": {
+        "london": {
+          "start": "2026-06-26",
+          "end": "2026-07-05"
+        }
+      }
+    }
+  ],
+  "hotelsByCity": {
+    "london": [],
+    "paris": [],
+    "amsterdam": []
+  },
+  "londonHotel": {
+    "name": "The Drey",
+    "location": "Earl's Court, London",
+    "mapLink": "https://maps.google.com/?q=The+Drey+Earls+Court+London",
+    "websiteLink": "https://www.thedrey.com",
+    "roomTypes": [
+      {
+        "name": "The Duo (Bunkbed Windowless)",
+        "maxOccupancy": 2,
+        "pricePerNight": 149,
+        "pricePerPerson": 74.5,
+        "availability": 3,
+        "description": "Bunkbed, windowless"
+      },
+      {
+        "name": "The Duo",
+        "maxOccupancy": 2,
+        "pricePerNight": 159,
+        "pricePerPerson": 79.5,
+        "availability": 1,
+        "description": "Bunk bed"
+      },
+      {
+        "name": "The Accessible Nest",
+        "maxOccupancy": 3,
+        "pricePerNight": 300,
+        "pricePerPerson": 100,
+        "availability": 3,
+        "description": "1 queen and 1 bunk bed"
+      },
+      {
+        "name": "The Warren",
+        "maxOccupancy": 4,
+        "pricePerNight": 354,
+        "pricePerPerson": 88.5,
+        "availability": 4,
+        "description": "1 queen bunk and 1 twin bunk"
+      }
+    ]
+  },
+  "londonHosting": {
+    "name": "Andrew's House",
+    "location": "London",
+    "maxGuests": 1
+  }
+}
