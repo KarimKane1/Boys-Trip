@@ -16,16 +16,20 @@ async function readFromGitHub(): Promise<TripData> {
   }
 
   try {
-    // Add cache-busting to prevent stale reads
+    // Use multiple cache-busting techniques to ensure fresh data
+    // GitHub API can cache responses, so we need to be aggressive
     const cacheBuster = Date.now();
+    const random = Math.random().toString(36).substring(7);
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}&r=${random}&_=${Date.now()}`,
       {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
           "Pragma": "no-cache",
+          "Expires": "0",
+          "If-None-Match": "", // Force fresh fetch
         },
       }
     );
@@ -42,7 +46,7 @@ async function readFromGitHub(): Promise<TripData> {
     const content = Buffer.from(data.content, "base64").toString("utf8");
     const parsed = JSON.parse(content);
     console.log("Read from GitHub - people count:", parsed.people?.length);
-    console.log("Read from GitHub - Daunte status:", parsed.people?.find((p: Person) => p.id === "daunte")?.status);
+    console.log("Read from GitHub - File SHA:", data.sha?.substring(0, 10));
     return parsed;
   } catch (error) {
     console.error("GitHub read error:", error);
@@ -60,31 +64,48 @@ async function writeToGitHub(data: TripData): Promise<void> {
     
     // First, get the current file to get its SHA (required for update)
     // Use cache-busting to ensure we get the latest version
-    const cacheBuster = Date.now();
-    const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}`,
-      {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-        },
-      }
-    );
-
+    // Retry a few times to handle GitHub API eventual consistency
     let sha: string | undefined;
-    if (getResponse.ok) {
-      const fileData = await getResponse.json();
-      sha = fileData.sha;
-      if (sha) {
-        console.log("Got existing file SHA:", sha.substring(0, 10) + "...");
+    let getResponse;
+    const maxGetAttempts = 3;
+    
+    for (let getAttempt = 1; getAttempt <= maxGetAttempts; getAttempt++) {
+      if (getAttempt > 1) {
+        // Wait a bit before retrying to let GitHub propagate
+        await new Promise(resolve => setTimeout(resolve, 500 * getAttempt));
       }
-    } else if (getResponse.status === 404) {
-      console.log("File doesn't exist yet, will create new file");
-    } else {
-      const errorText = await getResponse.text();
-      throw new Error(`Failed to get file: ${getResponse.status} - ${errorText}`);
+      
+      const cacheBuster = Date.now();
+      getResponse = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}`,
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+            Accept: "application/vnd.github.v3+json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+          },
+        }
+      );
+
+      if (getResponse.ok) {
+        const fileData = await getResponse.json();
+        sha = fileData.sha;
+        if (sha) {
+          console.log("Got existing file SHA:", sha.substring(0, 10) + "...");
+          break; // Success, exit retry loop
+        }
+      } else if (getResponse.status === 404) {
+        console.log("File doesn't exist yet, will create new file");
+        break; // File doesn't exist, that's fine - we'll create it
+      } else if (getAttempt < maxGetAttempts) {
+        console.warn(`Failed to get file SHA (attempt ${getAttempt}), will retry...`);
+        continue; // Retry
+      } else {
+        // Last attempt failed
+        const errorText = await getResponse.text();
+        throw new Error(`Failed to get file after ${maxGetAttempts} attempts: ${getResponse.status} - ${errorText}`);
+      }
     }
 
     // Update or create the file
@@ -135,12 +156,16 @@ async function writeToGitHub(data: TripData): Promise<void> {
     console.log("New file SHA:", result.content?.sha?.substring(0, 10));
     
     // The write succeeded if we got a commit SHA back
-    // We don't need to re-read to verify - the commit SHA proves it was written
-    if (result.commit?.sha) {
-      console.log("Write confirmed by commit SHA");
-    } else {
-      console.warn("Write response missing commit SHA");
+    // The commit SHA proves the write was committed to GitHub
+    if (!result.commit?.sha) {
+      throw new Error("Write response missing commit SHA - write may have failed");
     }
+    
+    console.log("Write confirmed by commit SHA:", result.commit.sha.substring(0, 10));
+    
+    // Small delay to ensure GitHub has processed the commit
+    // This helps with eventual consistency when reading back immediately
+    await new Promise(resolve => setTimeout(resolve, 500));
   } catch (error) {
     console.error("GitHub write error:", error);
     throw error;
@@ -276,56 +301,16 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
         ...(data.londonHosting && { londonHosting: data.londonHosting }),
       };
       
-      console.log("DataToWrite - Daunte status:", dataToWrite.people.find(p => p.id === personId)?.status);
+      console.log("DataToWrite - Person status:", dataToWrite.people.find(p => p.id === personId)?.status);
       await writeDatabase(dataToWrite);
       console.log("Database write complete");
       
-      // Wait longer and retry verification multiple times
-      // GitHub API can have eventual consistency, so we need to keep checking
-      let verified = false;
-      let verifyAttempts = 0;
-      const maxVerifyAttempts = 5;
-      
-      while (!verified && verifyAttempts < maxVerifyAttempts) {
-        verifyAttempts++;
-        const waitTime = 1000 + (verifyAttempts * 1000); // 2s, 3s, 4s, 5s, 6s
-        console.log(`Waiting ${waitTime}ms before verification attempt ${verifyAttempts}...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        
-        // Verify the write by reading back with fresh cache-bust
-        const verifyData = await readDatabase();
-        const verifyPerson = verifyData.people.find((p) => p.id === personId);
-        console.log(`Verification attempt ${verifyAttempts} - Daunte status:`, verifyPerson?.status);
-        console.log(`Verification attempt ${verifyAttempts} - All statuses:`, verifyData.people.map((p: Person) => ({ id: p.id, status: p.status })));
-        
-        if (verifyPerson && verifyPerson.status === updatedPerson.status) {
-          console.log(`Write verified on attempt ${verifyAttempts} - status matches:`, verifyPerson.status);
-          verified = true;
-          return verifyPerson;
-        } else {
-          console.warn(`Verification attempt ${verifyAttempts} failed - expected ${updatedPerson.status}, got ${verifyPerson?.status}`);
-        }
-      }
-      
-      // If we get here, verification failed after all attempts
-      const verifyData = await readDatabase();
-      const verifyPerson = verifyData.people.find((p) => p.id === personId);
-      console.error(`Write verification failed after ${maxVerifyAttempts} attempts`);
-      console.error(`Expected status: ${updatedPerson.status}, Got: ${verifyPerson?.status}`);
-      
-      if (verifyPerson && verifyPerson.status === updatedPerson.status) {
-        console.log("Write verified - status matches:", verifyPerson.status);
-        return verifyPerson;
-      } else {
-        console.warn(`Write verification failed - expected status ${updatedPerson.status}, got ${verifyPerson?.status}`);
-        if (attempt < maxRetries) {
-          lastError = new Error(`Status mismatch on attempt ${attempt} - expected ${updatedPerson.status}, got ${verifyPerson?.status}`);
-          continue; // Retry
-        } else {
-          // All retries failed - throw error instead of returning stale data
-          throw new Error(`Failed to verify write after ${maxRetries} attempts. Expected status ${updatedPerson.status}, but database still shows ${verifyPerson?.status}. The write may not have persisted.`);
-        }
-      }
+      // The writeDatabase function confirms success via commit SHA from GitHub API
+      // We trust that if writeDatabase didn't throw an error, the write succeeded
+      // GitHub API eventual consistency means reads might be slightly delayed, but the write is committed
+      // Return the updated person - the data is saved and will be available on next read
+      console.log("Write successful, returning updated person");
+      return updatedPerson;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Update attempt ${attempt} failed:`, lastError);
