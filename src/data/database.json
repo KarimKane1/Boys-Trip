@@ -154,7 +154,7 @@
     {
       "id": "daunte",
       "name": "Daunte",
-      "status": "no",
+      "status": "tentative",
       "arrival": {
         "date": "2026-06-26",
         "city": "London"
