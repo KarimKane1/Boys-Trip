@@ -25,8 +25,6 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
   const [editArrivalCity, setEditArrivalCity] = useState("");
   const [editDepartureDate, setEditDepartureDate] = useState("");
   const [editDepartureCity, setEditDepartureCity] = useState("");
-  const [editLondonStart, setEditLondonStart] = useState("");
-  const [editLondonEnd, setEditLondonEnd] = useState("");
   const [editParisStart, setEditParisStart] = useState("");
   const [editParisEnd, setEditParisEnd] = useState("");
   const [editAmsterdamStart, setEditAmsterdamStart] = useState("");
@@ -40,8 +38,6 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
     setEditArrivalCity(person.arrival?.city || "");
     setEditDepartureDate(person.departure?.date || "");
     setEditDepartureCity(person.departure?.city || "");
-    setEditLondonStart(person.cityRanges?.london?.start || "");
-    setEditLondonEnd(person.cityRanges?.london?.end || "");
     setEditParisStart(person.cityRanges?.paris?.start || "");
     setEditParisEnd(person.cityRanges?.paris?.end || "");
     setEditAmsterdamStart(person.cityRanges?.amsterdam?.start || "");
@@ -54,14 +50,19 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
     setSaving(true);
     try {
       const cityRanges: Person["cityRanges"] = {};
-      if (editLondonStart && editLondonEnd) {
-        cityRanges.london = { start: editLondonStart, end: editLondonEnd };
-      }
+      
+      // Paris and Amsterdam dates (user input)
       if (editParisStart && editParisEnd) {
         cityRanges.paris = { start: editParisStart, end: editParisEnd };
       }
       if (editAmsterdamStart && editAmsterdamEnd) {
         cityRanges.amsterdam = { start: editAmsterdamStart, end: editAmsterdamEnd };
+      }
+      
+      // London is automatically calculated from arrival to departure
+      // (excluding Paris/Amsterdam dates, which will override in the calendar)
+      if (editArrivalDate && editDepartureDate) {
+        cityRanges.london = { start: editArrivalDate, end: editDepartureDate };
       }
 
       const updatedPerson: Person = {
@@ -203,21 +204,28 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
                 <div className="text-sm text-gray-400">Departure not set</div>
               )}
 
-              {person.cityRanges && (
+              {(person.cityRanges || (person.arrival?.date && person.departure?.date)) && (
                 <div className="pt-3 mt-3 border-t border-gray-300 space-y-2">
-                  {person.cityRanges.london && (
+                  {/* Show London - either from cityRanges or inferred from arrival/departure */}
+                  {(person.cityRanges?.london || (person.arrival?.date && person.departure?.date)) && (
                     <div className={`text-xs px-3 py-1.5 rounded-lg border ${CITY_COLORS.London}`}>
                       <div className="font-semibold">London</div>
-                      <div>{formatDateRange(person.cityRanges.london.start, person.cityRanges.london.end)}</div>
+                      <div>
+                        {person.cityRanges?.london
+                          ? formatDateRange(person.cityRanges.london.start, person.cityRanges.london.end)
+                          : person.arrival?.date && person.departure?.date
+                          ? formatDateRange(person.arrival.date, person.departure.date)
+                          : ""}
+                      </div>
                     </div>
                   )}
-                  {person.cityRanges.paris && (
+                  {person.cityRanges?.paris && (
                     <div className={`text-xs px-3 py-1.5 rounded-lg border ${CITY_COLORS.Paris}`}>
                       <div className="font-semibold">Paris</div>
                       <div>{formatDateRange(person.cityRanges.paris.start, person.cityRanges.paris.end)}</div>
                     </div>
                   )}
-                  {person.cityRanges.amsterdam && (
+                  {person.cityRanges?.amsterdam && (
                     <div className={`text-xs px-3 py-1.5 rounded-lg border ${CITY_COLORS.Amsterdam}`}>
                       <div className="font-semibold">Amsterdam</div>
                       <div>{formatDateRange(person.cityRanges.amsterdam.start, person.cityRanges.amsterdam.end)}</div>
@@ -426,63 +434,13 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
 
               {/* City Date Ranges */}
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4 sm:mb-6">
-                  When will you be in each city?
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2 sm:mb-3">
+                  When will you be in Paris or Amsterdam?
                 </h3>
+                <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
+                  The rest of your time (from arrival to departure) will automatically be in London.
+                </p>
                 <div className="space-y-4 sm:space-y-6">
-                  {/* London */}
-                  <div className={`border-2 rounded-xl p-4 sm:p-6 ${CITY_COLORS.London}`}>
-                    <h4 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">London</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Start Date</label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={editLondonStart}
-                            onChange={(e) => setEditLondonStart(e.target.value)}
-                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white pr-10"
-                          />
-                          {editLondonStart && (
-                            <button
-                              type="button"
-                              onClick={() => setEditLondonStart("")}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
-                              aria-label="Clear date"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">End Date</label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={editLondonEnd}
-                            onChange={(e) => setEditLondonEnd(e.target.value)}
-                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white pr-10"
-                          />
-                          {editLondonEnd && (
-                            <button
-                              type="button"
-                              onClick={() => setEditLondonEnd("")}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation p-1"
-                              aria-label="Clear date"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Paris */}
                   <div className={`border-2 rounded-xl p-4 sm:p-6 ${CITY_COLORS.Paris}`}>
                     <h4 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">Paris</h4>

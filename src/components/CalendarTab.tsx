@@ -58,14 +58,14 @@ export default function CalendarTab({ people, tripStartDate = "2026-06-26", trip
 
   // Get which city a person is in on a specific date
   // Priority: Paris/Amsterdam over London (if overlap, non-London city wins)
+  // London is automatically inferred from arrival/departure if not explicitly set
   const getPersonCity = (person: Person, date: string): string | null => {
     if (person.status === "no") return null;
-    if (!person.cityRanges) return null;
 
     const dateObj = parseLocalDate(date);
 
     // Check Paris first (higher priority than London)
-    if (person.cityRanges.paris) {
+    if (person.cityRanges?.paris) {
       const start = parseLocalDate(person.cityRanges.paris.start);
       const end = parseLocalDate(person.cityRanges.paris.end);
       if (dateObj >= start && dateObj <= end) {
@@ -74,7 +74,7 @@ export default function CalendarTab({ people, tripStartDate = "2026-06-26", trip
     }
 
     // Check Amsterdam second (higher priority than London)
-    if (person.cityRanges.amsterdam) {
+    if (person.cityRanges?.amsterdam) {
       const start = parseLocalDate(person.cityRanges.amsterdam.start);
       const end = parseLocalDate(person.cityRanges.amsterdam.end);
       if (dateObj >= start && dateObj <= end) {
@@ -82,13 +82,22 @@ export default function CalendarTab({ people, tripStartDate = "2026-06-26", trip
       }
     }
 
-    // Check London last (lowest priority - only if not in Paris/Amsterdam)
-    if (person.cityRanges.london) {
-      const start = parseLocalDate(person.cityRanges.london.start);
-      const end = parseLocalDate(person.cityRanges.london.end);
-      if (dateObj >= start && dateObj <= end) {
-        return "London";
-      }
+    // Check London - either from explicit cityRanges or inferred from arrival/departure
+    let londonStart: Date | null = null;
+    let londonEnd: Date | null = null;
+
+    if (person.cityRanges?.london) {
+      // Use explicit London dates if set
+      londonStart = parseLocalDate(person.cityRanges.london.start);
+      londonEnd = parseLocalDate(person.cityRanges.london.end);
+    } else if (person.arrival?.date && person.departure?.date) {
+      // Auto-infer London from arrival to departure
+      londonStart = parseLocalDate(person.arrival.date);
+      londonEnd = parseLocalDate(person.departure.date);
+    }
+
+    if (londonStart && londonEnd && dateObj >= londonStart && dateObj <= londonEnd) {
+      return "London";
     }
 
     return null;
