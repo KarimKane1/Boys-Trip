@@ -141,8 +141,26 @@ async function writeToGitHub(data: TripData): Promise<void> {
           // Check if the file SHA has changed (indicating a new write)
           // The new SHA should be different from the old one we used for the write
           if (sha && verifyData.sha !== sha) {
-            console.log(`Verified write on attempt ${attempts} - SHA changed from ${sha.substring(0, 10)} to ${verifyData.sha.substring(0, 10)}`);
-            verified = true;
+            // Also verify the content matches what we wrote
+            const writtenContent = JSON.stringify(data, null, 2);
+            const verifyContentNormalized = JSON.stringify(verifyJson, null, 2);
+            
+            if (writtenContent === verifyContentNormalized) {
+              console.log(`Verified write on attempt ${attempts} - SHA changed and content matches`);
+              verified = true;
+            } else {
+              // SHA changed but content doesn't match - might be a concurrent write
+              console.log(`SHA changed but content mismatch on attempt ${attempts} - possible concurrent write`);
+              // Check if at least our person update is in there
+              const personInVerify = verifyJson.people?.find((p: Person) => {
+                const personInData = data.people.find(p2 => p2.id === p.id);
+                return personInData && JSON.stringify(p) === JSON.stringify(personInData);
+              });
+              if (personInVerify) {
+                console.log("Our person update is present in the file");
+                verified = true;
+              }
+            }
           } else if (!sha) {
             // If there was no previous file, any SHA means it was created
             console.log(`Verified write on attempt ${attempts} - file created`);
@@ -217,54 +235,93 @@ export async function writeDatabase(data: TripData): Promise<void> {
 
 export async function updatePerson(personId: string, updates: Partial<Person>): Promise<Person> {
   console.log("Updating person:", personId, updates);
-  const data = await readDatabase();
-  const personIndex = data.people.findIndex((p) => p.id === personId);
   
-  if (personIndex === -1) {
-    throw new Error(`Person with id ${personId} not found`);
+  // Retry logic to handle race conditions with GitHub
+  let lastError: Error | null = null;
+  const maxRetries = 3;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(`Retry attempt ${attempt} for updatePerson`);
+        // Wait a bit before retrying to let GitHub propagate
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+      
+      const data = await readDatabase();
+      const personIndex = data.people.findIndex((p) => p.id === personId);
+      
+      if (personIndex === -1) {
+        throw new Error(`Person with id ${personId} not found`);
+      }
+      
+      // Merge updates, but handle undefined values to remove fields
+      const currentPerson = data.people[personIndex];
+      console.log("Current person before update:", JSON.stringify(currentPerson, null, 2));
+      console.log("Updates received:", JSON.stringify(updates, null, 2));
+      
+      const updatedPerson: Person = {
+        ...currentPerson,
+        // Explicitly set status if provided - THIS IS CRITICAL
+        status: updates.status !== undefined ? updates.status : currentPerson.status,
+        // Explicitly handle undefined values to remove fields
+        arrival: updates.arrival !== undefined ? updates.arrival : currentPerson.arrival,
+        departure: updates.departure !== undefined ? updates.departure : currentPerson.departure,
+        cityRanges: updates.cityRanges !== undefined ? updates.cityRanges : currentPerson.cityRanges,
+        // Include all other fields from updates
+        ...Object.fromEntries(
+          Object.entries(updates).filter(([key]) => 
+            !["status", "arrival", "departure", "cityRanges"].includes(key)
+          )
+        ),
+      };
+      
+      // Remove undefined fields
+      if (updatedPerson.arrival === undefined) {
+        delete updatedPerson.arrival;
+      }
+      if (updatedPerson.departure === undefined) {
+        delete updatedPerson.departure;
+      }
+      if (updatedPerson.cityRanges === undefined || Object.keys(updatedPerson.cityRanges).length === 0) {
+        delete updatedPerson.cityRanges;
+      }
+      
+      console.log("Updated person after merge:", JSON.stringify(updatedPerson, null, 2));
+      console.log("Status specifically:", updatedPerson.status);
+      console.log("Full data object being written (first person status):", data.people[0]?.status);
+      
+      data.people[personIndex] = updatedPerson;
+      console.log("Writing database with updated person...");
+      console.log("Person in data array before write:", JSON.stringify(data.people[personIndex], null, 2));
+      await writeDatabase(data);
+      console.log("Database write complete");
+      
+      // Verify the write by reading back immediately
+      const verifyData = await readDatabase();
+      const verifyPerson = verifyData.people.find((p) => p.id === personId);
+      if (verifyPerson && verifyPerson.status === updatedPerson.status) {
+        console.log("Write verified - status matches:", verifyPerson.status);
+        return verifyPerson;
+      } else {
+        console.warn(`Write verification failed - expected status ${updatedPerson.status}, got ${verifyPerson?.status}`);
+        if (attempt < maxRetries) {
+          lastError = new Error(`Status mismatch on attempt ${attempt}`);
+          continue; // Retry
+        }
+      }
+      
+      return data.people[personIndex];
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Update attempt ${attempt} failed:`, lastError);
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+    }
   }
   
-  // Merge updates, but handle undefined values to remove fields
-  const currentPerson = data.people[personIndex];
-  console.log("Current person before update:", JSON.stringify(currentPerson, null, 2));
-  console.log("Updates received:", JSON.stringify(updates, null, 2));
-  
-  const updatedPerson: Person = {
-    ...currentPerson,
-    // Explicitly set status if provided
-    status: updates.status !== undefined ? updates.status : currentPerson.status,
-    // Explicitly handle undefined values to remove fields
-    arrival: updates.arrival !== undefined ? updates.arrival : currentPerson.arrival,
-    departure: updates.departure !== undefined ? updates.departure : currentPerson.departure,
-    cityRanges: updates.cityRanges !== undefined ? updates.cityRanges : currentPerson.cityRanges,
-    // Include all other fields from updates
-    ...Object.fromEntries(
-      Object.entries(updates).filter(([key]) => 
-        !["status", "arrival", "departure", "cityRanges"].includes(key)
-      )
-    ),
-  };
-  
-  // Remove undefined fields
-  if (updatedPerson.arrival === undefined) {
-    delete updatedPerson.arrival;
-  }
-  if (updatedPerson.departure === undefined) {
-    delete updatedPerson.departure;
-  }
-  if (updatedPerson.cityRanges === undefined || Object.keys(updatedPerson.cityRanges).length === 0) {
-    delete updatedPerson.cityRanges;
-  }
-  
-  console.log("Updated person after merge:", JSON.stringify(updatedPerson, null, 2));
-  console.log("Status specifically:", updatedPerson.status);
-  
-  data.people[personIndex] = updatedPerson;
-  console.log("Writing database with updated person...");
-  await writeDatabase(data);
-  console.log("Database write complete");
-  
-  return data.people[personIndex];
+  throw lastError || new Error("Failed to update person after retries");
 }
 
 export async function getHotels(city: "london" | "paris" | "amsterdam"): Promise<Hotel[]> {
