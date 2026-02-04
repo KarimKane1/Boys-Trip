@@ -88,7 +88,17 @@ async function writeToGitHub(data: TripData): Promise<void> {
     }
 
     // Update or create the file
+    // Log what we're about to write to verify it's correct
+    const daunteInData = data.people?.find((p: Person) => p.id === "daunte");
+    console.log("About to write to GitHub - Daunte status in data:", daunteInData?.status);
+    console.log("About to write - All people statuses:", data.people?.map((p: Person) => ({ id: p.id, status: p.status })));
+    
     const content = JSON.stringify(data, null, 2);
+    // Verify Daunte is in the JSON string
+    const daunteInJson = content.includes('"id": "daunte"') && content.match(/"id": "daunte"[\s\S]{0,200}"status": "([^"]+)"/);
+    if (daunteInJson) {
+      console.log("Daunte status in JSON string:", daunteInJson[1]);
+    }
     const encodedContent = Buffer.from(content).toString("base64");
 
     const updateResponse = await fetch(
@@ -251,7 +261,22 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
       console.log("Full data object statuses:", data.people.map(p => ({ id: p.id, status: p.status })));
       
       // CRITICAL: Make sure we're writing the complete data object with all fields preserved
-      const dataToWrite = { ...data };
+      // Deep clone to ensure we're not missing any nested fields
+      const dataToWrite: TripData = {
+        ...data,
+        people: data.people.map(p => ({ ...p })),
+        hotelsByCity: {
+          ...data.hotelsByCity,
+          london: [...(data.hotelsByCity.london || [])],
+          paris: [...(data.hotelsByCity.paris || [])],
+          amsterdam: [...(data.hotelsByCity.amsterdam || [])],
+        },
+        // Preserve optional fields
+        ...(data.londonHotel && { londonHotel: data.londonHotel }),
+        ...(data.londonHosting && { londonHosting: data.londonHosting }),
+      };
+      
+      console.log("DataToWrite - Daunte status:", dataToWrite.people.find(p => p.id === personId)?.status);
       await writeDatabase(dataToWrite);
       console.log("Database write complete");
       
