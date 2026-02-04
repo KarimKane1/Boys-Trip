@@ -44,7 +44,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Karim",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" }, // Full range, Paris will override
+      london: { start: "2026-06-27", end: "2026-07-05" }, // Full range, Paris will override
       paris: { start: "2026-07-02", end: "2026-07-03" },
     },
   },
@@ -53,7 +53,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Adam",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" }, // Full range, Paris will override
+      london: { start: "2026-06-27", end: "2026-07-05" }, // Full range, Paris will override
       paris: { start: "2026-07-02", end: "2026-07-03" },
     },
   },
@@ -81,7 +81,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Lucas",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" },
+      london: { start: "2026-06-27", end: "2026-07-05" },
       paris: { start: "2026-07-02", end: "2026-07-03" }, // Optional, will override London
     },
   },
@@ -90,7 +90,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Justin",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" },
+      london: { start: "2026-06-27", end: "2026-07-05" },
     },
   },
   {
@@ -98,7 +98,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Andrew",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" },
+      london: { start: "2026-06-27", end: "2026-07-05" },
     },
   },
   {
@@ -106,7 +106,7 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Daunte",
     status: "tentative",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" },
+      london: { start: "2026-06-27", end: "2026-07-05" },
     },
   },
 ];
@@ -118,7 +118,7 @@ const parseLocalDate = (dateString: string): Date => {
 };
 
 export default function ProposedPlanTab() {
-  const tripStartDate = "2026-06-26";
+  const tripStartDate = "2026-06-27";
   const tripEndDate = "2026-07-05";
 
   // Generate all dates in the trip range
