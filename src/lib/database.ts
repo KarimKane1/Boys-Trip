@@ -193,18 +193,26 @@ export async function readDatabase(): Promise<TripData> {
   // Use GitHub in production, file system in local dev
   if (isProduction && GITHUB_TOKEN) {
     try {
-      return await readFromGitHub();
+      console.log("Reading from GitHub (production mode)");
+      const data = await readFromGitHub();
+      console.log(`Read from GitHub successful - ${data.people?.length || 0} people`);
+      return data;
     } catch (error) {
       console.error("Failed to read from GitHub, falling back to default:", error);
-      return getDefaultData();
+      // Don't fall back to default in production - throw the error so we know something is wrong
+      throw error;
     }
   }
 
   // Local development - use file system
+  console.log("Reading from local file system (development mode)");
   try {
     const fileContents = await fs.readFile(DB_PATH, "utf8");
-    return JSON.parse(fileContents);
+    const data = JSON.parse(fileContents);
+    console.log(`Read from local file successful - ${data.people?.length || 0} people`);
+    return data;
   } catch (error) {
+    console.error("Failed to read local file, creating default:", error);
     const defaultData = getDefaultData();
     await writeDatabase(defaultData);
     return defaultData;
@@ -214,12 +222,22 @@ export async function readDatabase(): Promise<TripData> {
 export async function writeDatabase(data: TripData): Promise<void> {
   // Use GitHub in production, file system in local dev
   if (isProduction && GITHUB_TOKEN) {
+    console.log("Writing to GitHub (production mode)");
     await writeToGitHub(data);
     return;
   }
 
   // Local development - use file system
-  await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), "utf8");
+  console.log("Writing to local file system (development mode)");
+  const content = JSON.stringify(data, null, 2);
+  await fs.writeFile(DB_PATH, content, "utf8");
+  console.log("Local file write complete");
+  
+  // Verify the write by reading back
+  const verifyContent = await fs.readFile(DB_PATH, "utf8");
+  const verifyData = JSON.parse(verifyContent);
+  const peopleCount = verifyData.people?.length || 0;
+  console.log(`Local write verified - ${peopleCount} people in database`);
 }
 
 export async function updatePerson(personId: string, updates: Partial<Person>): Promise<Person> {
@@ -227,14 +245,20 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
   
   // Retry logic to handle race conditions with GitHub
   let lastError: Error | null = null;
-  const maxRetries = 3;
+  const maxRetries = 5; // Increased retries for better reliability
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       if (attempt > 1) {
         console.log(`Retry attempt ${attempt} for updatePerson`);
-        // Wait a bit before retrying to let GitHub propagate
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // Wait progressively longer before retrying to let GitHub propagate
+        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+      }
+      
+      // CRITICAL: Read fresh data on each attempt to avoid stale data
+      // Add a small delay before reading to ensure any previous writes have propagated
+      if (attempt > 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       const data = await readDatabase();
@@ -278,39 +302,60 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
       
       console.log("Updated person after merge:", JSON.stringify(updatedPerson, null, 2));
       console.log("Status specifically:", updatedPerson.status);
-      console.log("Full data object being written (first person status):", data.people[0]?.status);
       
-      data.people[personIndex] = updatedPerson;
-      console.log("Writing database with updated person...");
-      console.log("Person in data array before write:", JSON.stringify(data.people[personIndex], null, 2));
-      console.log("Full data object statuses:", data.people.map(p => ({ id: p.id, status: p.status })));
-      
-      // CRITICAL: Make sure we're writing the complete data object with all fields preserved
-      // Deep clone to ensure we're not missing any nested fields
+      // Create a deep copy of the data to avoid mutating the original
       const dataToWrite: TripData = {
-        ...data,
-        people: data.people.map(p => ({ ...p })),
+        trip: { ...data.trip },
+        cities: [...data.cities],
+        people: data.people.map((p, idx) => 
+          idx === personIndex ? { ...updatedPerson } : { ...p }
+        ),
         hotelsByCity: {
-          ...data.hotelsByCity,
           london: [...(data.hotelsByCity.london || [])],
           paris: [...(data.hotelsByCity.paris || [])],
           amsterdam: [...(data.hotelsByCity.amsterdam || [])],
         },
-        // Preserve optional fields
-        ...(data.londonHotel && { londonHotel: data.londonHotel }),
-        ...(data.londonHosting && { londonHosting: data.londonHosting }),
+        // Preserve optional fields with deep copies
+        ...(data.londonHotel && { 
+          londonHotel: {
+            ...data.londonHotel,
+            roomTypes: data.londonHotel.roomTypes.map(rt => ({ ...rt }))
+          }
+        }),
+        ...(data.londonHosting && { londonHosting: { ...data.londonHosting } }),
       };
       
-      console.log("DataToWrite - Person status:", dataToWrite.people.find(p => p.id === personId)?.status);
+      // Verify the person is correctly set in dataToWrite
+      const verifyPerson = dataToWrite.people.find(p => p.id === personId);
+      console.log("DataToWrite - Person status:", verifyPerson?.status);
+      console.log("DataToWrite - All people statuses:", dataToWrite.people.map(p => ({ id: p.id, status: p.status })));
+      
+      // Write to database
       await writeDatabase(dataToWrite);
       console.log("Database write complete");
       
-      // The writeDatabase function confirms success via commit SHA from GitHub API
-      // We trust that if writeDatabase didn't throw an error, the write succeeded
-      // GitHub API eventual consistency means reads might be slightly delayed, but the write is committed
-      // Return the updated person - the data is saved and will be available on next read
-      console.log("Write successful, returning updated person");
-      return updatedPerson;
+      // Wait a bit to ensure the write has propagated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verify the write by reading back
+      const verifyData = await readDatabase();
+      const verifyPersonAfterWrite = verifyData.people.find((p) => p.id === personId);
+      
+      if (verifyPersonAfterWrite && verifyPersonAfterWrite.status === updatedPerson.status) {
+        console.log("Write verified - status matches:", verifyPersonAfterWrite.status);
+        return verifyPersonAfterWrite;
+      } else {
+        console.warn(`Verification failed - expected ${updatedPerson.status}, got ${verifyPersonAfterWrite?.status}`);
+        // If verification fails and we have retries left, try again
+        if (attempt < maxRetries) {
+          lastError = new Error(`Verification failed on attempt ${attempt}`);
+          continue;
+        } else {
+          // On last attempt, return the updated person anyway since write succeeded
+          console.warn("Verification failed but write succeeded, returning updated person");
+          return updatedPerson;
+        }
+      }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Update attempt ${attempt} failed:`, lastError);
