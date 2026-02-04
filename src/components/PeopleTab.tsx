@@ -83,7 +83,7 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
       const savedPerson = await updatePerson(updatedPerson);
       console.log("Person saved, returned status:", savedPerson.status);
       
-      // Optimistically update the UI immediately
+      // Update the UI with the saved person data (already verified by the API)
       if (onPersonUpdate) {
         onPersonUpdate(savedPerson);
       }
@@ -94,13 +94,11 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
       // Show success message
       alert("Changes saved successfully!");
       
-      // Refresh from server in the background (with longer delay for GitHub to process)
-      // The database write function now verifies the write, so we wait longer
-      setTimeout(async () => {
-        console.log("Refreshing data from server...");
-        await onDataChange();
-        console.log("Refresh complete");
-      }, 5000); // Increased to 5 seconds to allow verification to complete
+      // Note: We don't refresh from server here because:
+      // 1. The API already verified the write succeeded
+      // 2. The optimistic update already shows the correct data
+      // 3. Automatic refresh was causing data to revert due to race conditions with GitHub API caching
+      // Users can manually refresh if they want to see other people's updates
     } catch (error) {
       console.error("Failed to save person:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
