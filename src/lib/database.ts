@@ -66,7 +66,9 @@ async function writeToGitHub(data: TripData): Promise<void> {
     if (getResponse.ok) {
       const fileData = await getResponse.json();
       sha = fileData.sha;
-      console.log("Got existing file SHA:", sha.substring(0, 10) + "...");
+      if (sha) {
+        console.log("Got existing file SHA:", sha.substring(0, 10) + "...");
+      }
     } else if (getResponse.status === 404) {
       console.log("File doesn't exist yet, will create new file");
     } else {
