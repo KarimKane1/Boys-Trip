@@ -72,8 +72,8 @@ const PROPOSED_PEOPLE: ProposedPerson[] = [
     name: "Jake",
     status: "confirmed",
     cityRanges: {
-      london: { start: "2026-06-26", end: "2026-07-05" },
-      amsterdam: { start: "2026-06-27", end: "2026-06-29" }, // Optional, will override London
+      london: { start: "2026-06-29", end: "2026-07-05" }, // Starts after Amsterdam, travels with Kachi
+      amsterdam: { start: "2026-06-27", end: "2026-06-28" }, // Ends Jun 28, travels to London Jun 29 with Kachi
     },
   },
   {
@@ -175,6 +175,20 @@ export default function ProposedPlanTab() {
     return null;
   };
 
+  // Detect if a person is traveling TO this city on this date (arrival day)
+  const isPersonTraveling = (person: ProposedPerson, date: string, currentCity: string): boolean => {
+    if (person.status === "no") return false;
+    
+    const dateIndex = dates.indexOf(date);
+    if (dateIndex === 0) return false; // First day can't be a travel day (no previous day)
+    
+    const yesterdayCity = getPersonCity(person, dates[dateIndex - 1]);
+    const todayCity = getPersonCity(person, date);
+    
+    // Traveling if: yesterday was in a different city, and today is in the current city
+    return yesterdayCity !== null && todayCity === currentCity && yesterdayCity !== currentCity;
+  };
+
   // Group people by city for each date
   const calendarData = useMemo(() => {
     const data: Record<
@@ -244,6 +258,10 @@ export default function ProposedPlanTab() {
             <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${CITY_COLORS.Amsterdam.accent}`}></div>
             <span className="text-xs sm:text-sm font-medium text-gray-900">Amsterdam</span>
           </div>
+          <div className="flex items-center gap-2 ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-gray-300">
+            <span className="text-xs sm:text-sm">🧳</span>
+            <span className="text-xs sm:text-sm font-medium text-gray-600">Travel day</span>
+          </div>
         </div>
       </div>
 
@@ -294,17 +312,23 @@ export default function ProposedPlanTab() {
                     <td className="px-2 sm:px-4 py-2 sm:py-3">
                       {dayData.London.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {dayData.London.map((person) => (
-                            <div
-                              key={person.id}
-                              className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.London.bg} ${CITY_COLORS.London.text} ${CITY_COLORS.London.border}`}
-                            >
-                              {person.name}
-                              {person.status === "tentative" && (
-                                <span className="ml-1 text-[10px] opacity-75">(?)</span>
-                              )}
-                            </div>
-                          ))}
+                          {dayData.London.map((person) => {
+                            const isTraveling = isPersonTraveling(person, date, "London");
+                            return (
+                              <div
+                                key={person.id}
+                                className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.London.bg} ${CITY_COLORS.London.text} ${CITY_COLORS.London.border} ${isTraveling ? "border-dashed border-2 opacity-90" : ""}`}
+                              >
+                                {person.name}
+                                {isTraveling && (
+                                  <span className="ml-1 text-[10px] sm:text-xs">🧳</span>
+                                )}
+                                {person.status === "tentative" && (
+                                  <span className="ml-1 text-[10px] opacity-75">(?)</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <span className="text-gray-300 text-sm">—</span>
@@ -313,17 +337,23 @@ export default function ProposedPlanTab() {
                     <td className="px-4 py-3">
                       {dayData.Paris.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {dayData.Paris.map((person) => (
-                            <div
-                              key={person.id}
-                              className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.Paris.bg} ${CITY_COLORS.Paris.text} ${CITY_COLORS.Paris.border}`}
-                            >
-                              {person.name}
-                              {person.status === "tentative" && (
-                                <span className="ml-1 text-[10px] opacity-75">(?)</span>
-                              )}
-                            </div>
-                          ))}
+                          {dayData.Paris.map((person) => {
+                            const isTraveling = isPersonTraveling(person, date, "Paris");
+                            return (
+                              <div
+                                key={person.id}
+                                className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.Paris.bg} ${CITY_COLORS.Paris.text} ${CITY_COLORS.Paris.border} ${isTraveling ? "border-dashed border-2 opacity-90" : ""}`}
+                              >
+                                {person.name}
+                                {isTraveling && (
+                                  <span className="ml-1 text-[10px] sm:text-xs">🧳</span>
+                                )}
+                                {person.status === "tentative" && (
+                                  <span className="ml-1 text-[10px] opacity-75">(?)</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <span className="text-gray-300 text-sm">—</span>
@@ -332,17 +362,23 @@ export default function ProposedPlanTab() {
                     <td className="px-4 py-3">
                       {dayData.Amsterdam.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {dayData.Amsterdam.map((person) => (
-                            <div
-                              key={person.id}
-                              className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.Amsterdam.bg} ${CITY_COLORS.Amsterdam.text} ${CITY_COLORS.Amsterdam.border}`}
-                            >
-                              {person.name}
-                              {person.status === "tentative" && (
-                                <span className="ml-1 text-[10px] opacity-75">(?)</span>
-                              )}
-                            </div>
-                          ))}
+                          {dayData.Amsterdam.map((person) => {
+                            const isTraveling = isPersonTraveling(person, date, "Amsterdam");
+                            return (
+                              <div
+                                key={person.id}
+                                className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border ${CITY_COLORS.Amsterdam.bg} ${CITY_COLORS.Amsterdam.text} ${CITY_COLORS.Amsterdam.border} ${isTraveling ? "border-dashed border-2 opacity-90" : ""}`}
+                              >
+                                {person.name}
+                                {isTraveling && (
+                                  <span className="ml-1 text-[10px] sm:text-xs">🧳</span>
+                                )}
+                                {person.status === "tentative" && (
+                                  <span className="ml-1 text-[10px] opacity-75">(?)</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <span className="text-gray-300 text-sm">—</span>
