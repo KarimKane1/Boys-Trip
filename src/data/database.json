@@ -23,10 +23,6 @@
         "city": "London"
       },
       "cityRanges": {
-        "paris": {
-          "start": "2026-07-01",
-          "end": "2026-07-03"
-        },
         "london": {
           "start": "2026-06-26",
           "end": "2026-07-05"
