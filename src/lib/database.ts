@@ -16,12 +16,16 @@ async function readFromGitHub(): Promise<TripData> {
   }
 
   try {
+    // Add cache-busting to prevent stale reads
+    const cacheBuster = Date.now();
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}`,
       {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
         },
       }
     );
@@ -36,7 +40,10 @@ async function readFromGitHub(): Promise<TripData> {
 
     const data = await response.json();
     const content = Buffer.from(data.content, "base64").toString("utf8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    console.log("Read from GitHub - people count:", parsed.people?.length);
+    console.log("Read from GitHub - Daunte status:", parsed.people?.find((p: Person) => p.id === "daunte")?.status);
+    return parsed;
   } catch (error) {
     console.error("GitHub read error:", error);
     throw error;
@@ -52,12 +59,16 @@ async function writeToGitHub(data: TripData): Promise<void> {
     console.log("Writing to GitHub...", { repo: GITHUB_REPO, path: DB_FILE_PATH });
     
     // First, get the current file to get its SHA (required for update)
+    // Use cache-busting to ensure we get the latest version
+    const cacheBuster = Date.now();
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}?t=${cacheBuster}`,
       {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
         },
       }
     );
@@ -110,72 +121,15 @@ async function writeToGitHub(data: TripData): Promise<void> {
     }
 
     const result = await updateResponse.json();
-    console.log("Successfully wrote to GitHub:", result.commit?.sha?.substring(0, 10));
+    console.log("Successfully wrote to GitHub - Commit SHA:", result.commit?.sha?.substring(0, 10));
+    console.log("New file SHA:", result.content?.sha?.substring(0, 10));
     
-    // Verify the write by reading back after a delay
-    // GitHub API can have eventual consistency, so we retry reading until we get the new data
-    let verified = false;
-    let attempts = 0;
-    const maxAttempts = 5;
-    
-    while (!verified && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000 + (attempts * 500))); // Increasing delay
-      attempts++;
-      
-      try {
-        const verifyResponse = await fetch(
-          `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
-          {
-            headers: {
-              Authorization: `Bearer ${GITHUB_TOKEN}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
-        
-        if (verifyResponse.ok) {
-          const verifyData = await verifyResponse.json();
-          const verifyContent = Buffer.from(verifyData.content, "base64").toString("utf8");
-          const verifyJson = JSON.parse(verifyContent);
-          
-          // Check if the file SHA has changed (indicating a new write)
-          // The new SHA should be different from the old one we used for the write
-          if (sha && verifyData.sha !== sha) {
-            // Also verify the content matches what we wrote
-            const writtenContent = JSON.stringify(data, null, 2);
-            const verifyContentNormalized = JSON.stringify(verifyJson, null, 2);
-            
-            if (writtenContent === verifyContentNormalized) {
-              console.log(`Verified write on attempt ${attempts} - SHA changed and content matches`);
-              verified = true;
-            } else {
-              // SHA changed but content doesn't match - might be a concurrent write
-              console.log(`SHA changed but content mismatch on attempt ${attempts} - possible concurrent write`);
-              // Check if at least our person update is in there
-              const personInVerify = verifyJson.people?.find((p: Person) => {
-                const personInData = data.people.find(p2 => p2.id === p.id);
-                return personInData && JSON.stringify(p) === JSON.stringify(personInData);
-              });
-              if (personInVerify) {
-                console.log("Our person update is present in the file");
-                verified = true;
-              }
-            }
-          } else if (!sha) {
-            // If there was no previous file, any SHA means it was created
-            console.log(`Verified write on attempt ${attempts} - file created`);
-            verified = true;
-          } else {
-            console.log(`Write not yet visible, attempt ${attempts}/${maxAttempts} - SHA still ${verifyData.sha.substring(0, 10)}`);
-          }
-        }
-      } catch (error) {
-        console.log(`Verification attempt ${attempts} failed:`, error);
-      }
-    }
-    
-    if (!verified) {
-      console.warn("Could not verify write after all attempts, but write appeared successful");
+    // The write succeeded if we got a commit SHA back
+    // We don't need to re-read to verify - the commit SHA proves it was written
+    if (result.commit?.sha) {
+      console.log("Write confirmed by commit SHA");
+    } else {
+      console.warn("Write response missing commit SHA");
     }
   } catch (error) {
     console.error("GitHub write error:", error);
@@ -294,19 +248,29 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
       data.people[personIndex] = updatedPerson;
       console.log("Writing database with updated person...");
       console.log("Person in data array before write:", JSON.stringify(data.people[personIndex], null, 2));
-      await writeDatabase(data);
+      console.log("Full data object statuses:", data.people.map(p => ({ id: p.id, status: p.status })));
+      
+      // CRITICAL: Make sure we're writing the complete data object with all fields preserved
+      const dataToWrite = { ...data };
+      await writeDatabase(dataToWrite);
       console.log("Database write complete");
       
-      // Verify the write by reading back immediately
+      // Wait a moment for GitHub to process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Verify the write by reading back with fresh cache-bust
       const verifyData = await readDatabase();
       const verifyPerson = verifyData.people.find((p) => p.id === personId);
+      console.log("Verification read - Daunte status:", verifyPerson?.status);
+      console.log("Verification read - All statuses:", verifyData.people.map((p: Person) => ({ id: p.id, status: p.status })));
+      
       if (verifyPerson && verifyPerson.status === updatedPerson.status) {
         console.log("Write verified - status matches:", verifyPerson.status);
         return verifyPerson;
       } else {
         console.warn(`Write verification failed - expected status ${updatedPerson.status}, got ${verifyPerson?.status}`);
         if (attempt < maxRetries) {
-          lastError = new Error(`Status mismatch on attempt ${attempt}`);
+          lastError = new Error(`Status mismatch on attempt ${attempt} - expected ${updatedPerson.status}, got ${verifyPerson?.status}`);
           continue; // Retry
         }
       }
