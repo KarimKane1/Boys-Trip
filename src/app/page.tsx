@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import PeopleTab from "@/components/PeopleTab";
 import HotelsTab from "@/components/HotelsTab";
 import CalendarTab from "@/components/CalendarTab";
+import ProposedPlanTab from "@/components/ProposedPlanTab";
 import { fetchTripData } from "@/lib/api";
 import type { Person, TripData } from "@/data/tripData";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"people" | "calendar" | "hotels">("people");
+  const [activeTab, setActiveTab] = useState<"people" | "calendar" | "hotels" | "proposed">("people");
   const [people, setPeople] = useState<Person[]>([]);
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,16 @@ export default function Home() {
             >
               Hotels
             </button>
+            <button
+              onClick={() => setActiveTab("proposed")}
+              className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${
+                activeTab === "proposed"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Proposed Plan
+            </button>
           </nav>
         </div>
 
@@ -109,6 +120,7 @@ export default function Home() {
             />
           )}
           {activeTab === "hotels" && <HotelsTab />}
+          {activeTab === "proposed" && <ProposedPlanTab />}
         </div>
       </div>
     </div>
