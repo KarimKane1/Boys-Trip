@@ -1,92 +1,154 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { Person, Hotel, TripData } from "@/data/tripData";
-import { Redis } from "@upstash/redis";
 
 const DB_PATH = path.join(process.cwd(), "src/data/database.json");
-const DB_KEY = "trip_data";
 
-// Initialize Redis only if we have the environment variables (production)
-let redis: Redis | null = null;
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
+// Use GitHub API in production, file system in local dev
+const isProduction = process.env.VERCEL === "1";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO || "KarimKane1/Boys-Trip";
+const DB_FILE_PATH = "src/data/database.json";
+
+async function readFromGitHub(): Promise<TripData> {
+  if (!GITHUB_TOKEN) {
+    throw new Error("GITHUB_TOKEN not configured");
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // File doesn't exist, return default
+        return getDefaultData();
+      }
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = Buffer.from(data.content, "base64").toString("utf8");
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("GitHub read error:", error);
+    throw error;
+  }
 }
 
-// Helper to get database - tries Redis first, falls back to file system
-async function getDatabase(): Promise<TripData> {
-  // Try Redis first (production)
-  if (redis) {
-    try {
-      const data = await redis.get<TripData>(DB_KEY);
-      if (data) {
-        return data;
+async function writeToGitHub(data: TripData): Promise<void> {
+  if (!GITHUB_TOKEN) {
+    throw new Error("GITHUB_TOKEN not configured");
+  }
+
+  try {
+    // First, get the current file to get its SHA (required for update)
+    const getResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+        },
       }
+    );
+
+    let sha: string | undefined;
+    if (getResponse.ok) {
+      const fileData = await getResponse.json();
+      sha = fileData.sha;
+    }
+
+    // Update or create the file
+    const content = JSON.stringify(data, null, 2);
+    const encodedContent = Buffer.from(content).toString("base64");
+
+    const updateResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `Update trip data - ${new Date().toISOString()}`,
+          content: encodedContent,
+          sha: sha,
+        }),
+      }
+    );
+
+    if (!updateResponse.ok) {
+      const error = await updateResponse.json();
+      throw new Error(`GitHub API error: ${updateResponse.status} - ${JSON.stringify(error)}`);
+    }
+  } catch (error) {
+    console.error("GitHub write error:", error);
+    throw error;
+  }
+}
+
+function getDefaultData(): TripData {
+  return {
+    trip: {
+      title: "Trip HQ",
+      startDate: "2026-06-26",
+      endDate: "2026-07-05",
+    },
+    cities: ["London", "Paris", "Amsterdam"],
+    people: [],
+    hotelsByCity: {
+      london: [],
+      paris: [],
+      amsterdam: [],
+    },
+  };
+}
+
+export async function readDatabase(): Promise<TripData> {
+  // Use GitHub in production, file system in local dev
+  if (isProduction && GITHUB_TOKEN) {
+    try {
+      return await readFromGitHub();
     } catch (error) {
-      console.error("Redis read error:", error);
-      // Fall through to file system
+      console.error("Failed to read from GitHub, falling back to default:", error);
+      return getDefaultData();
     }
   }
 
-  // Fall back to file system (local development)
+  // Local development - use file system
   try {
     const fileContents = await fs.readFile(DB_PATH, "utf8");
     return JSON.parse(fileContents);
   } catch (error) {
-    // If file doesn't exist, return default data
-    const defaultData: TripData = {
-      trip: {
-        title: "Trip HQ",
-        startDate: "2026-06-26",
-        endDate: "2026-07-05",
-      },
-      cities: ["London", "Paris", "Amsterdam"],
-      people: [],
-      hotelsByCity: {
-        london: [],
-        paris: [],
-        amsterdam: [],
-      },
-    };
-    await saveDatabase(defaultData);
+    const defaultData = getDefaultData();
+    await writeDatabase(defaultData);
     return defaultData;
   }
 }
 
-// Helper to save database - tries Redis first, falls back to file system
-async function saveDatabase(data: TripData): Promise<void> {
-  // Try Redis first (production)
-  if (redis) {
-    try {
-      await redis.set(DB_KEY, data);
-      return;
-    } catch (error) {
-      console.error("Redis write error:", error);
-      // Fall through to file system
-    }
-  }
-
-  // Fall back to file system (local development)
-  try {
-    await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    console.error("File system write error:", error);
-    throw new Error("Failed to save database");
-  }
-}
-
-export async function readDatabase(): Promise<TripData> {
-  return getDatabase();
-}
-
 export async function writeDatabase(data: TripData): Promise<void> {
-  await saveDatabase(data);
+  // Use GitHub in production, file system in local dev
+  if (isProduction && GITHUB_TOKEN) {
+    await writeToGitHub(data);
+    return;
+  }
+
+  // Local development - use file system
+  await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), "utf8");
 }
 
 export async function updatePerson(personId: string, updates: Partial<Person>): Promise<Person> {
-  const data = await getDatabase();
+  const data = await readDatabase();
   const personIndex = data.people.findIndex((p) => p.id === personId);
   
   if (personIndex === -1) {
@@ -94,39 +156,39 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
   }
   
   data.people[personIndex] = { ...data.people[personIndex], ...updates };
-  await saveDatabase(data);
+  await writeDatabase(data);
   
   return data.people[personIndex];
 }
 
 export async function getHotels(city: "london" | "paris" | "amsterdam"): Promise<Hotel[]> {
-  const data = await getDatabase();
+  const data = await readDatabase();
   return data.hotelsByCity[city] || [];
 }
 
 export async function addHotel(city: "london" | "paris" | "amsterdam", hotel: Hotel): Promise<Hotel> {
-  const data = await getDatabase();
+  const data = await readDatabase();
   if (!data.hotelsByCity[city]) {
     data.hotelsByCity[city] = [];
   }
   data.hotelsByCity[city].push(hotel);
-  await saveDatabase(data);
+  await writeDatabase(data);
   return hotel;
 }
 
 export async function deleteHotel(city: "london" | "paris" | "amsterdam", hotelId: string): Promise<void> {
-  const data = await getDatabase();
+  const data = await readDatabase();
   if (data.hotelsByCity[city]) {
     data.hotelsByCity[city] = data.hotelsByCity[city].filter((h) => h.id !== hotelId);
-    await saveDatabase(data);
+    await writeDatabase(data);
   }
 }
 
 export async function getAllPeople(): Promise<Person[]> {
-  const data = await getDatabase();
+  const data = await readDatabase();
   return data.people;
 }
 
 export async function getTripData(): Promise<TripData> {
-  return getDatabase();
+  return readDatabase();
 }

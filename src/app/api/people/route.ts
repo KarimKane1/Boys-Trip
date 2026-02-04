@@ -39,6 +39,4 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Export runtime config for Vercel
-export const runtime = 'nodejs';
 
