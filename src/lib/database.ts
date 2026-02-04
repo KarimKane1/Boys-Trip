@@ -85,7 +85,7 @@ async function writeToGitHub(data: TripData): Promise<void> {
       {
         method: "PUT",
         headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -112,8 +112,53 @@ async function writeToGitHub(data: TripData): Promise<void> {
     const result = await updateResponse.json();
     console.log("Successfully wrote to GitHub:", result.commit?.sha?.substring(0, 10));
     
-    // Longer delay to ensure GitHub has processed the write and it's available for reads
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Verify the write by reading back after a delay
+    // GitHub API can have eventual consistency, so we retry reading until we get the new data
+    let verified = false;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (!verified && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000 + (attempts * 500))); // Increasing delay
+      attempts++;
+      
+      try {
+        const verifyResponse = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
+          {
+            headers: {
+              Authorization: `Bearer ${GITHUB_TOKEN}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+        
+        if (verifyResponse.ok) {
+          const verifyData = await verifyResponse.json();
+          const verifyContent = Buffer.from(verifyData.content, "base64").toString("utf8");
+          const verifyJson = JSON.parse(verifyContent);
+          
+          // Check if the file SHA has changed (indicating a new write)
+          // The new SHA should be different from the old one we used for the write
+          if (sha && verifyData.sha !== sha) {
+            console.log(`Verified write on attempt ${attempts} - SHA changed from ${sha.substring(0, 10)} to ${verifyData.sha.substring(0, 10)}`);
+            verified = true;
+          } else if (!sha) {
+            // If there was no previous file, any SHA means it was created
+            console.log(`Verified write on attempt ${attempts} - file created`);
+            verified = true;
+          } else {
+            console.log(`Write not yet visible, attempt ${attempts}/${maxAttempts} - SHA still ${verifyData.sha.substring(0, 10)}`);
+          }
+        }
+      } catch (error) {
+        console.log(`Verification attempt ${attempts} failed:`, error);
+      }
+    }
+    
+    if (!verified) {
+      console.warn("Could not verify write after all attempts, but write appeared successful");
+    }
   } catch (error) {
     console.error("GitHub write error:", error);
     throw error;

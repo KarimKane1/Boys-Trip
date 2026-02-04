@@ -94,10 +94,13 @@ export default function PeopleTab({ people, onDataChange, onPersonUpdate }: Peop
       // Show success message
       alert("Changes saved successfully!");
       
-      // Refresh from server in the background (with delay for GitHub to process)
+      // Refresh from server in the background (with longer delay for GitHub to process)
+      // The database write function now verifies the write, so we wait longer
       setTimeout(async () => {
+        console.log("Refreshing data from server...");
         await onDataChange();
-      }, 2000);
+        console.log("Refresh complete");
+      }, 5000); // Increased to 5 seconds to allow verification to complete
     } catch (error) {
       console.error("Failed to save person:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
