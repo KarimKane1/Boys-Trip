@@ -15,9 +15,10 @@ const CITY_COLORS = {
 interface PeopleTabProps {
   people: Person[];
   onDataChange: () => Promise<void>;
+  onPersonUpdate?: (updatedPerson: Person) => void;
 }
 
-export default function PeopleTab({ people, onDataChange }: PeopleTabProps) {
+export default function PeopleTab({ people, onDataChange, onPersonUpdate }: PeopleTabProps) {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editStatus, setEditStatus] = useState<"confirmed" | "tentative" | "no">("confirmed");
   const [editArrivalDate, setEditArrivalDate] = useState("");
@@ -82,16 +83,21 @@ export default function PeopleTab({ people, onDataChange }: PeopleTabProps) {
       const savedPerson = await updatePerson(updatedPerson);
       console.log("Person saved, returned status:", savedPerson.status);
       
-      // Wait a bit for GitHub to process
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Optimistically update the UI immediately
+      if (onPersonUpdate) {
+        onPersonUpdate(savedPerson);
+      }
       
-      // Refresh from database to ensure consistency
-      await onDataChange();
-      
+      // Close modal
       setEditingPerson(null);
       
       // Show success message
       alert("Changes saved successfully!");
+      
+      // Refresh from server in the background (with delay for GitHub to process)
+      setTimeout(async () => {
+        await onDataChange();
+      }, 2000);
     } catch (error) {
       console.error("Failed to save person:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";

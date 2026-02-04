@@ -74,11 +74,14 @@ export async function deleteHotel(city: "london" | "paris" | "amsterdam", hotelI
 }
 
 export async function fetchTripData(): Promise<TripData> {
-  // Add cache-busting timestamp
-  const response = await fetch(`${API_BASE}/trip?t=${Date.now()}`, {
+  // Add cache-busting timestamp with random component
+  const timestamp = Date.now();
+  const random = Math.random();
+  const response = await fetch(`${API_BASE}/trip?t=${timestamp}&r=${random}`, {
     cache: "no-store",
     headers: {
-      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
     },
   });
   if (!response.ok) {

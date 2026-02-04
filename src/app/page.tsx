@@ -16,7 +16,10 @@ export default function Home() {
 
   const loadData = useCallback(async () => {
     try {
+      console.log("Loading data from server...", new Date().toISOString());
       const data = await fetchTripData();
+      console.log("Data loaded, people count:", data.people.length);
+      console.log("Daunte status:", data.people.find(p => p.id === "daunte")?.status);
       setPeople(data.people);
       setTripData(data);
       setLastUpdated(new Date());
@@ -89,7 +92,14 @@ export default function Home() {
         {/* Tab Content */}
         <div>
           {activeTab === "people" && (
-            <PeopleTab people={people} onDataChange={loadData} />
+            <PeopleTab 
+              people={people} 
+              onDataChange={loadData}
+              onPersonUpdate={(updatedPerson) => {
+                // Optimistically update the local state
+                setPeople(prev => prev.map(p => p.id === updatedPerson.id ? updatedPerson : p));
+              }}
+            />
           )}
           {activeTab === "calendar" && (
             <CalendarTab 
