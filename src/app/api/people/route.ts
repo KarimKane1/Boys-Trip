@@ -31,7 +31,14 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedPerson);
   } catch (error) {
     console.error("Error updating person:", error);
-    return NextResponse.json({ error: "Failed to update person" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ 
+      error: "Failed to update person",
+      details: errorMessage 
+    }, { status: 500 });
   }
 }
+
+// Export runtime config for Vercel
+export const runtime = 'nodejs';
 
