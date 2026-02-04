@@ -23,8 +23,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("POST /api/people - Received request");
     const body = await request.json();
     const person = body as Person;
+    
+    console.log("Updating person:", person.id, { 
+      status: person.status, 
+      hasCityRanges: !!person.cityRanges,
+      arrival: person.arrival,
+      departure: person.departure 
+    });
     
     if (!person.id) {
       return NextResponse.json({ error: "Person ID is required" }, { status: 400 });
@@ -32,10 +40,12 @@ export async function POST(request: NextRequest) {
     
     const { id, ...updates } = person;
     const updatedPerson = await updatePerson(id, updates);
+    console.log("Successfully updated person:", updatedPerson.id);
     return NextResponse.json(updatedPerson);
   } catch (error) {
     console.error("Error updating person:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", errorMessage);
     return NextResponse.json({ 
       error: "Failed to update person",
       details: errorMessage 

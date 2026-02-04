@@ -20,7 +20,7 @@ async function readFromGitHub(): Promise<TripData> {
       `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
       {
         headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
         },
       }
@@ -45,16 +45,18 @@ async function readFromGitHub(): Promise<TripData> {
 
 async function writeToGitHub(data: TripData): Promise<void> {
   if (!GITHUB_TOKEN) {
-    throw new Error("GITHUB_TOKEN not configured");
+    throw new Error("GITHUB_TOKEN not configured. Please add it in Vercel environment variables.");
   }
 
   try {
+    console.log("Writing to GitHub...", { repo: GITHUB_REPO, path: DB_FILE_PATH });
+    
     // First, get the current file to get its SHA (required for update)
     const getResponse = await fetch(
       `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_FILE_PATH}`,
       {
         headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github.v3+json",
         },
       }
@@ -64,6 +66,12 @@ async function writeToGitHub(data: TripData): Promise<void> {
     if (getResponse.ok) {
       const fileData = await getResponse.json();
       sha = fileData.sha;
+      console.log("Got existing file SHA:", sha.substring(0, 10) + "...");
+    } else if (getResponse.status === 404) {
+      console.log("File doesn't exist yet, will create new file");
+    } else {
+      const errorText = await getResponse.text();
+      throw new Error(`Failed to get file: ${getResponse.status} - ${errorText}`);
     }
 
     // Update or create the file
@@ -88,9 +96,22 @@ async function writeToGitHub(data: TripData): Promise<void> {
     );
 
     if (!updateResponse.ok) {
-      const error = await updateResponse.json();
-      throw new Error(`GitHub API error: ${updateResponse.status} - ${JSON.stringify(error)}`);
+      const errorText = await updateResponse.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      console.error("GitHub API error response:", errorData);
+      throw new Error(`GitHub API error: ${updateResponse.status} - ${JSON.stringify(errorData)}`);
     }
+
+    const result = await updateResponse.json();
+    console.log("Successfully wrote to GitHub:", result.commit?.sha?.substring(0, 10));
+    
+    // Small delay to ensure GitHub has processed the write
+    await new Promise(resolve => setTimeout(resolve, 500));
   } catch (error) {
     console.error("GitHub write error:", error);
     throw error;
@@ -148,6 +169,7 @@ export async function writeDatabase(data: TripData): Promise<void> {
 }
 
 export async function updatePerson(personId: string, updates: Partial<Person>): Promise<Person> {
+  console.log("Updating person:", personId, updates);
   const data = await readDatabase();
   const personIndex = data.people.findIndex((p) => p.id === personId);
   
@@ -156,7 +178,9 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
   }
   
   data.people[personIndex] = { ...data.people[personIndex], ...updates };
+  console.log("Writing database with updated person...");
   await writeDatabase(data);
+  console.log("Database write complete");
   
   return data.people[personIndex];
 }

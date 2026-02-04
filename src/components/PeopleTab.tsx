@@ -82,9 +82,13 @@ export default function PeopleTab({ people, onDataChange }: PeopleTabProps) {
       await onDataChange();
       
       setEditingPerson(null);
+      
+      // Show success message
+      alert("Changes saved successfully!");
     } catch (error) {
       console.error("Failed to save person:", error);
-      alert("Failed to save changes. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to save changes: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
