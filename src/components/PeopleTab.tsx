@@ -78,6 +78,9 @@ export default function PeopleTab({ people, onDataChange }: PeopleTabProps) {
       // Save to database
       await updatePerson(updatedPerson);
       
+      // Wait a bit for GitHub to process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Refresh from database to ensure consistency
       await onDataChange();
       

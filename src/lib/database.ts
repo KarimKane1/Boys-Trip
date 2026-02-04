@@ -112,8 +112,8 @@ async function writeToGitHub(data: TripData): Promise<void> {
     const result = await updateResponse.json();
     console.log("Successfully wrote to GitHub:", result.commit?.sha?.substring(0, 10));
     
-    // Small delay to ensure GitHub has processed the write
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Longer delay to ensure GitHub has processed the write and it's available for reads
+    await new Promise(resolve => setTimeout(resolve, 1500));
   } catch (error) {
     console.error("GitHub write error:", error);
     throw error;
@@ -179,8 +179,30 @@ export async function updatePerson(personId: string, updates: Partial<Person>): 
     throw new Error(`Person with id ${personId} not found`);
   }
   
-  data.people[personIndex] = { ...data.people[personIndex], ...updates };
-  console.log("Writing database with updated person...");
+  // Merge updates, but handle undefined values to remove fields
+  const currentPerson = data.people[personIndex];
+  const updatedPerson: Person = {
+    ...currentPerson,
+    ...updates,
+    // Explicitly handle undefined values to remove fields
+    arrival: updates.arrival !== undefined ? updates.arrival : currentPerson.arrival,
+    departure: updates.departure !== undefined ? updates.departure : currentPerson.departure,
+    cityRanges: updates.cityRanges !== undefined ? updates.cityRanges : currentPerson.cityRanges,
+  };
+  
+  // Remove undefined fields
+  if (updatedPerson.arrival === undefined) {
+    delete updatedPerson.arrival;
+  }
+  if (updatedPerson.departure === undefined) {
+    delete updatedPerson.departure;
+  }
+  if (updatedPerson.cityRanges === undefined || Object.keys(updatedPerson.cityRanges).length === 0) {
+    delete updatedPerson.cityRanges;
+  }
+  
+  data.people[personIndex] = updatedPerson;
+  console.log("Writing database with updated person...", JSON.stringify(updatedPerson, null, 2));
   await writeDatabase(data);
   console.log("Database write complete");
   

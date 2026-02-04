@@ -3,8 +3,12 @@ import type { Person, Hotel, TripData } from "@/data/tripData";
 const API_BASE = "/api";
 
 export async function fetchPeople(): Promise<Person[]> {
-  const response = await fetch(`${API_BASE}/people`, {
+  // Add cache-busting timestamp
+  const response = await fetch(`${API_BASE}/people?t=${Date.now()}`, {
     cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
   });
   if (!response.ok) {
     throw new Error("Failed to fetch people");
@@ -70,8 +74,12 @@ export async function deleteHotel(city: "london" | "paris" | "amsterdam", hotelI
 }
 
 export async function fetchTripData(): Promise<TripData> {
-  const response = await fetch(`${API_BASE}/trip`, {
+  // Add cache-busting timestamp
+  const response = await fetch(`${API_BASE}/trip?t=${Date.now()}`, {
     cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
   });
   if (!response.ok) {
     throw new Error("Failed to fetch trip data");
