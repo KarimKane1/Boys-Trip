@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAllPeople, updatePerson } from "@/lib/database";
 import type { Person } from "@/data/tripData";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const people = await getAllPeople();
@@ -18,15 +21,16 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, ...updates } = body as Person & { id: string };
+    const person = body as Person;
     
-    if (!id) {
+    if (!person.id) {
       return NextResponse.json({ error: "Person ID is required" }, { status: 400 });
     }
     
+    const { id, ...updates } = person;
     const updatedPerson = await updatePerson(id, updates);
     return NextResponse.json(updatedPerson);
   } catch (error) {

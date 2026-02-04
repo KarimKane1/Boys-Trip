@@ -14,7 +14,7 @@ export async function fetchPeople(): Promise<Person[]> {
 
 export async function updatePerson(person: Person): Promise<Person> {
   const response = await fetch(`${API_BASE}/people`, {
-    method: "PUT",
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
@@ -22,7 +22,8 @@ export async function updatePerson(person: Person): Promise<Person> {
   });
   
   if (!response.ok) {
-    throw new Error("Failed to update person");
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.details || errorData.error || "Failed to update person");
   }
   
   return response.json();
