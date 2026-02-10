@@ -88,8 +88,8 @@
       "name": "Jake",
       "status": "confirmed",
       "arrival": {
-        "date": "2026-06-26",
-        "city": "London"
+        "date": "2026-06-27",
+        "city": "Amsterdam"
       },
       "departure": {
         "date": "2026-07-05",
@@ -101,7 +101,7 @@
           "end": "2026-06-29"
         },
         "london": {
-          "start": "2026-06-26",
+          "start": "2026-06-27",
           "end": "2026-07-05"
         }
       }
