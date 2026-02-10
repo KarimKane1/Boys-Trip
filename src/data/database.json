@@ -96,6 +96,10 @@
         "city": "London"
       },
       "cityRanges": {
+        "amsterdam": {
+          "start": "2026-06-27",
+          "end": "2026-06-29"
+        },
         "london": {
           "start": "2026-06-26",
           "end": "2026-07-05"
